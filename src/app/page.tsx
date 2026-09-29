@@ -36,7 +36,19 @@ export default function Home() {
                 <input type="text" id="excluded-numbers" placeholder="예: 4, 44" />
               </div>
             </div>
-            <button id="generate-btn" className="primary-btn">최적 조합 5게임 생성</button>
+            
+            <div id="deep-analysis-section" style={{ background: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '10px', marginBottom: '20px', borderLeft: '4px solid #E67E22' }}>
+              <h3 style={{ color: '#E67E22', fontSize: '1.1rem', marginBottom: '10px' }}>🧠 백엔드 초정밀 분석 (1회~최신회차 DB 기반)</h3>
+              <button id="deep-analyze-btn" className="primary-btn" style={{ background: 'linear-gradient(135deg, #E67E22, #D35400)', width: '100%', marginBottom: '10px' }}>🔍 DB 기반 정밀 분석 실행 (필수)</button>
+              <div id="deep-analyze-progress" style={{ display: 'none', color: '#F39C12', fontSize: '0.95rem', fontStyle: 'italic', padding: '10px', background: 'rgba(0,0,0,0.3)', borderRadius: '5px' }}>
+                과거 1243회차 데이터 스캔 중...
+              </div>
+              <div id="deep-analyze-result" style={{ display: 'none', color: '#2ECC71', fontSize: '0.95rem', fontWeight: 'bold', padding: '10px', background: 'rgba(0,0,0,0.3)', borderRadius: '5px' }}>
+                ✅ 정밀 분석 완료! (낙수 및 정규분포 가중치 적용됨)
+              </div>
+            </div>
+
+            <button id="generate-btn" className="primary-btn" disabled style={{ opacity: 0.5 }}>최적 조합 5게임 생성 (먼저 정밀 분석을 실행하세요)</button>
           </section>
 
           <section id="machine-section" className="glass-panel" style={{ display: 'none', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>

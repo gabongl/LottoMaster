@@ -73,6 +73,29 @@ async function renderStats() {
     });
 }
 
+function getWeightedRandomNumber(weightsObj, excluded, currentNumbers) {
+    if (!weightsObj) {
+        let rnd;
+        do { rnd = Math.floor(Math.random() * 45) + 1; } while(excluded.includes(rnd) || currentNumbers.has(rnd));
+        return rnd;
+    }
+    let totalWeight = 0;
+    const pool = [];
+    for (let i = 1; i <= 45; i++) {
+        if (!excluded.includes(i) && !currentNumbers.has(i)) {
+            const w = weightsObj[i] || 1;
+            totalWeight += w;
+            pool.push({ num: i, weight: w });
+        }
+    }
+    let r = Math.random() * totalWeight;
+    for (let i = 0; i < pool.length; i++) {
+        r -= pool[i].weight;
+        if (r <= 0) return pool[i].num;
+    }
+    return pool[pool.length - 1].num;
+}
+
 // 통계 및 패턴 기반 번호 생성 로직
 function generateLottoNumbers(fixed = [], excluded = []) {
     let numbers = new Set(fixed);
@@ -80,7 +103,7 @@ function generateLottoNumbers(fixed = [], excluded = []) {
 
     while (numbers.size < 6 && attempts < 1000) {
         attempts++;
-        const candidate = Math.floor(Math.random() * 45) + 1;
+        const candidate = getWeightedRandomNumber(window.deepAnalysisWeights, excluded, numbers);
         
         if (excluded.includes(candidate)) continue;
         if (numbers.has(candidate)) continue;
@@ -130,6 +153,20 @@ function generateLottoNumbers(fixed = [], excluded = []) {
                  if (removable.length > 0) numbers.delete(removable[Math.floor(Math.random() * removable.length)]);
                  continue;
             }
+
+            // 5. 끝수 동조화 방지 필터 (동일 끝수 3개 이상 불가)
+            const lastDigits = arr.map(n => n % 10);
+            const counts = {};
+            let hasTooManySameLastDigits = false;
+            for (let d of lastDigits) {
+                counts[d] = (counts[d] || 0) + 1;
+                if (counts[d] >= 3) hasTooManySameLastDigits = true;
+            }
+            if (hasTooManySameLastDigits) {
+                 const removable = arr.filter(n => !fixed.includes(n));
+                 if (removable.length > 0) numbers.delete(removable[Math.floor(Math.random() * removable.length)]);
+                 continue;
+            }
         }
     }
     
@@ -150,6 +187,38 @@ function parseInput(inputStr) {
         .map(s => parseInt(s.trim()))
         .filter(n => !isNaN(n) && n >= 1 && n <= 45);
 }
+
+document.getElementById('deep-analyze-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('deep-analyze-btn');
+    const progress = document.getElementById('deep-analyze-progress');
+    const result = document.getElementById('deep-analyze-result');
+    const generateBtn = document.getElementById('generate-btn');
+
+    btn.disabled = true;
+    progress.style.display = 'block';
+    result.style.display = 'none';
+
+    try {
+        const res = await fetch('/api/analyze');
+        const data = await res.json();
+        if(data.success) {
+            window.deepAnalysisWeights = data.weights;
+            progress.style.display = 'none';
+            result.style.display = 'block';
+            result.textContent = `✅ 정밀 분석 완료! (1회~${data.totalDrawsAnalyzed}회 누적 데이터 기반 낙수 및 정규분포 가중치 적용됨)`;
+            
+            generateBtn.disabled = false;
+            generateBtn.style.opacity = 1;
+            generateBtn.textContent = '최적 조합 5게임 생성';
+            
+            showToast('백엔드 정밀 분석 모델이 로드되었습니다!');
+        }
+    } catch(e) {
+        progress.style.display = 'none';
+        btn.disabled = false;
+        showToast('분석 중 오류가 발생했습니다.');
+    }
+});
 
 document.getElementById('generate-btn').addEventListener('click', () => {
     const fixedStr = document.getElementById('fixed-numbers').value;
