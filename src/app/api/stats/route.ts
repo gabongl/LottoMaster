@@ -16,7 +16,7 @@ export async function GET() {
     const counts: Record<number, number> = {};
     for (let i = 1; i <= 45; i++) counts[i] = 0;
     
-    draws.forEach(draw => {
+    draws.forEach((draw: any) => {
       counts[draw.num1]++;
       counts[draw.num2]++;
       counts[draw.num3]++;
