@@ -78,8 +78,9 @@ export default function Home() {
             <h2>📈 내 번호 보관함 & 적중률 분석</h2>
             
             <div className="ai-status" style={{ background: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '10px', marginBottom: '20px', borderLeft: '4px solid #9B59B6' }}>
-              <h3 style={{ color: '#9B59B6', fontSize: '1.1rem', marginBottom: '5px' }}>🧠 AI 알고리즘 상태</h3>
-              <p id="ai-level-text" style={{ fontSize: '0.9rem', color: '#DDD' }}>학습 데이터 수집 중... (현재 버전: v1.0)</p>
+              <h3 style={{ color: '#9B59B6', fontSize: '1.1rem', marginBottom: '5px' }}>🧠 AI 알고리즘 상태 (<span id="ai-version">v1.0</span>)</h3>
+              <p id="ai-params" style={{ fontSize: '0.9rem', color: '#DDD', lineHeight: '1.5' }}>파라미터 초기화 중...</p>
+              <p style={{ fontSize: '0.8rem', color: '#AAA', marginTop: '8px' }}>누적 자가 학습: <span id="learning-count">0</span>회 완료</p>
             </div>
 
             <div className="controls" style={{ marginBottom: '20px' }}>

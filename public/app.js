@@ -1,6 +1,6 @@
 // 통계 데이터 모의 (실제 서비스 시 동행복권 API 연동 필요)
-const hotNumbers = [7, 15, 23, 31, 44];
-const coldNumbers = [2, 9, 18, 25, 41];
+let hotNumbers = [];
+let coldNumbers = [];
 
 // Phase 2: AI State & History State
 let aiStats = JSON.parse(localStorage.getItem('lottoAiStats')) || { 
@@ -44,9 +44,26 @@ function createBallElement(num) {
 }
 
 // 초기 UI 렌더링
-function renderStats() {
+async function renderStats() {
     const hotContainer = document.getElementById('hot-numbers');
     const coldContainer = document.getElementById('cold-numbers');
+
+    try {
+        const res = await fetch('/api/stats');
+        const data = await res.json();
+        if (data.hot) hotNumbers = data.hot;
+        if (data.cold) coldNumbers = data.cold;
+        if (data.totalDraws) {
+            console.log(`Loaded stats from ${data.totalDraws} past draws.`);
+        }
+    } catch (e) {
+        console.error("Failed to fetch stats, using fallback", e);
+        hotNumbers = [7, 15, 23, 31, 44];
+        coldNumbers = [2, 9, 18, 25, 41];
+    }
+
+    hotContainer.innerHTML = '';
+    coldContainer.innerHTML = '';
 
     hotNumbers.forEach(num => {
         hotContainer.appendChild(createBallElement(num));
