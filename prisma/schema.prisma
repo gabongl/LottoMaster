@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  history       LottoHistory[]
+  aiState       AiState?
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?  @db.Text
+  access_token       String?  @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?  @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model LottoHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  games     Json     // [[1,2,3,4,5,6], [...]]
+  analyzed  Boolean  @default(false)
+  results   Json?    // ["1등", "낙첨", ...]
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AiState {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  version       Float    @default(1.0)
+  sumMin        Int      @default(100)
+  sumMax        Int      @default(180)
+  learningCount Int      @default(0)
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model LottoDraw {
+  round   Int @id
+  num1    Int
+  num2    Int
+  num3    Int
+  num4    Int
+  num5    Int
+  num6    Int
+  bonus   Int
+  
+  @@map("lotto_draws")
+}
