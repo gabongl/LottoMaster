@@ -3,7 +3,15 @@ const hotNumbers = [7, 15, 23, 31, 44];
 const coldNumbers = [2, 9, 18, 25, 41];
 
 // Phase 2: AI State & History State
-let aiStats = JSON.parse(localStorage.getItem('lottoAiStats')) || { version: 1.0, sumMin: 100, sumMax: 180, learningCount: 0 };
+let aiStats = JSON.parse(localStorage.getItem('lottoAiStats')) || { 
+    version: 1.0, 
+    sumMin: 100, 
+    sumMax: 180, 
+    oddRatio: 3, // 홀수 목표 개수 (기본 3)
+    highRatio: 3, // 고저(23이상) 목표 개수 (기본 3)
+    consecutiveProb: 0.5, // 연속 번호 출현 확률 (기본 50%)
+    learningCount: 0 
+};
 let lottoHistory = JSON.parse(localStorage.getItem('lottoHistory')) || [];
 
 function showToast(message) {
@@ -77,25 +85,32 @@ function generateLottoNumbers(fixed = [], excluded = []) {
                 continue;
             }
 
-            // 2. 3연속 숫자 방지
+            // 2. 3연속 숫자 방지 및 AI 연속 확률 적용
+            let hasConsecutive = false;
             let hasConsecutive3 = false;
-            for (let i = 0; i < arr.length - 2; i++) {
-                if (arr[i] + 1 === arr[i+1] && arr[i+1] + 1 === arr[i+2]) {
-                    hasConsecutive3 = true;
-                    break;
-                }
+            for (let i = 0; i < arr.length - 1; i++) {
+                if (arr[i] + 1 === arr[i+1]) hasConsecutive = true;
+                if (i < arr.length - 2 && arr[i] + 1 === arr[i+1] && arr[i+1] + 1 === arr[i+2]) hasConsecutive3 = true;
             }
-            if (hasConsecutive3) {
+            if (hasConsecutive3 || (hasConsecutive !== (Math.random() < aiStats.consecutiveProb))) {
                 const removable = arr.filter(n => !fixed.includes(n));
-                if (removable.length > 0) numbers.delete(removable[0]);
+                if (removable.length > 0) numbers.delete(removable[Math.floor(Math.random() * removable.length)]);
                 continue;
             }
 
-            // 3. 홀짝 비율 (3:3, 4:2, 2:4 위주로 구성)
+            // 3. 홀짝 비율 (AI 학습 비율 적용)
             const odds = arr.filter(n => n % 2 !== 0).length;
-            if (odds === 0 || odds === 1 || odds === 5 || odds === 6) {
+            if (Math.abs(odds - Math.round(aiStats.oddRatio)) > 1) {
                  const removable = arr.filter(n => !fixed.includes(n));
-                 if (removable.length > 0) numbers.delete(removable[0]);
+                 if (removable.length > 0) numbers.delete(removable[Math.floor(Math.random() * removable.length)]);
+                 continue;
+            }
+
+            // 4. 고저 비율 (AI 학습 비율 적용)
+            const highs = arr.filter(n => n >= 23).length;
+            if (Math.abs(highs - Math.round(aiStats.highRatio)) > 1) {
+                 const removable = arr.filter(n => !fixed.includes(n));
+                 if (removable.length > 0) numbers.delete(removable[Math.floor(Math.random() * removable.length)]);
                  continue;
             }
         }
@@ -426,10 +441,24 @@ if(analyzeBtn) {
             const targetMin = Math.max(21, winSum - 30);
             const targetMax = Math.min(255, winSum + 30);
             
+            // 실제 당첨 번호의 특성 분석
+            const mockWinningNums = [3, 15, 22, 28, 33, 41];
+            const realOddCount = mockWinningNums.filter(n => n % 2 !== 0).length;
+            const realHighCount = mockWinningNums.filter(n => n >= 23).length;
+            let realHasConsecutive = 0;
+            for (let i = 0; i < 5; i++) {
+                if (mockWinningNums[i + 1] - mockWinningNums[i] === 1) realHasConsecutive = 1;
+            }
+
+            // 가중치 이동 (Learning Rate = 0.3)
             aiStats.sumMin = Math.round(aiStats.sumMin * 0.7 + targetMin * 0.3);
             aiStats.sumMax = Math.round(aiStats.sumMax * 0.7 + targetMax * 0.3);
+            aiStats.oddRatio = parseFloat((aiStats.oddRatio * 0.7 + realOddCount * 0.3).toFixed(2));
+            aiStats.highRatio = parseFloat((aiStats.highRatio * 0.7 + realHighCount * 0.3).toFixed(2));
+            aiStats.consecutiveProb = parseFloat((aiStats.consecutiveProb * 0.7 + realHasConsecutive * 0.3).toFixed(2));
+            
             aiStats.learningCount += 1;
-            aiStats.version += 0.1;
+            aiStats.version = parseFloat((aiStats.version + 0.1).toFixed(1));
             
             localStorage.setItem('lottoAiStats', JSON.stringify(aiStats));
             localStorage.setItem('lottoHistory', JSON.stringify(lottoHistory));
@@ -442,3 +471,19 @@ if(analyzeBtn) {
         }
     });
 }
+
+function updateAiStatus() {
+    const versionEl = document.getElementById('ai-version');
+    const paramsEl = document.getElementById('ai-params');
+    const countEl = document.getElementById('learning-count');
+    
+    if (versionEl) versionEl.textContent = `v${aiStats.version.toFixed(1)}`;
+    if (paramsEl) paramsEl.innerHTML = `총합 허용범위: <span class="highlight">${aiStats.sumMin}~${aiStats.sumMax}</span><br>` +
+                                       `홀짝 가중치: <span class="highlight">홀수 ${aiStats.oddRatio}개</span><br>` +
+                                       `고저 가중치: <span class="highlight">고(23~) ${aiStats.highRatio}개</span><br>` +
+                                       `연속 출현율: <span class="highlight">${Math.round(aiStats.consecutiveProb * 100)}%</span>`;
+    if (countEl) countEl.textContent = aiStats.learningCount;
+}
+
+// 초기 로드시 UI 업데이트
+updateAiStatus();
