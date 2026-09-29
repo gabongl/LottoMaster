@@ -1,6 +1,7 @@
 // 통계 데이터 모의 (실제 서비스 시 동행복권 API 연동 필요)
 let hotNumbers = [];
 let coldNumbers = [];
+let userSession = null;
 
 // Phase 2: AI State & History State
 let aiStats = JSON.parse(localStorage.getItem('lottoAiStats')) || { 
@@ -12,7 +13,7 @@ let aiStats = JSON.parse(localStorage.getItem('lottoAiStats')) || {
     consecutiveProb: 0.5, // 연속 번호 출현 확률 (기본 50%)
     learningCount: 0 
 };
-let lottoHistory = JSON.parse(localStorage.getItem('lottoHistory')) || [];
+let lottoHistory = [];
 
 function showToast(message) {
     let toast = document.getElementById('custom-toast');
@@ -467,24 +468,41 @@ function renderHistory() {
 
 const saveBtn = document.getElementById('save-btn');
 if(saveBtn) {
-    saveBtn.addEventListener('click', () => {
+    saveBtn.addEventListener('click', async () => {
         if (!window.currentGeneratedGames || window.currentGeneratedGames.length === 0) return;
         
-        const newRecord = {
-            id: Date.now(),
-            date: new Date().toLocaleString(),
-            games: [...window.currentGeneratedGames],
-            analyzed: false,
-            results: []
-        };
+        if (!userSession) {
+            showToast('나만의 번호 보관함 기능은 구글 로그인이 필요합니다.');
+            setTimeout(() => {
+                window.location.href = '/api/auth/signin/google';
+            }, 1500);
+            return;
+        }
+
+        saveBtn.disabled = true;
+        saveBtn.textContent = "저장 중...";
         
-        lottoHistory.push(newRecord);
-        localStorage.setItem('lottoHistory', JSON.stringify(lottoHistory));
-        showToast('❤️ 내 번호 보관함에 성공적으로 저장되었습니다!');
-        renderHistory();
-        
-        // 스크롤 이동
-        document.getElementById('analytics-section').scrollIntoView({ behavior: 'smooth' });
+        try {
+            const res = await fetch('/api/history', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ games: window.currentGeneratedGames })
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                showToast('❤️ 내 번호 보관함에 성공적으로 저장되었습니다!');
+                await fetchAndRenderHistory();
+                document.getElementById('analytics-section').scrollIntoView({ behavior: 'smooth' });
+            } else {
+                showToast('저장에 실패했습니다.');
+            }
+        } catch(e) {
+            showToast('저장 중 오류가 발생했습니다.');
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.textContent = "❤️ 이 번호로 결정 (DB 저장)";
+        }
     });
 }
 
@@ -571,5 +589,52 @@ function updateAiStatus() {
     if (countEl) countEl.textContent = aiStats.learningCount;
 }
 
-// 초기 로드시 UI 업데이트
-updateAiStatus();
+// 초기 로드시 UI 업데이트 및 세션 체크
+async function initApp() {
+    try {
+        const sessionRes = await fetch('/api/auth/session');
+        const sessionData = await sessionRes.json();
+        
+        const header = document.querySelector('header');
+        const authDiv = document.createElement('div');
+        authDiv.style.marginTop = '10px';
+        authDiv.style.fontSize = '0.9rem';
+        
+        if (sessionData && Object.keys(sessionData).length > 0 && sessionData.user) {
+            userSession = sessionData.user;
+            authDiv.innerHTML = `<span style="color: #2ECC71;">✅ ${userSession.email}</span> 님 환영합니다! <a href="/api/auth/signout" style="color: #E74C3C; margin-left: 10px; text-decoration: underline;">로그아웃</a>`;
+            await fetchAndRenderHistory();
+        } else {
+            authDiv.innerHTML = `<a href="/api/auth/signin/google" style="background: #3498DB; padding: 5px 15px; border-radius: 5px; color: white; text-decoration: none;">🔐 구글 로그인 (번호 보관함 사용)</a>`;
+            renderHistory(); // empty
+        }
+        
+        header.appendChild(authDiv);
+    } catch(e) {
+        console.error("Session fetch error", e);
+    }
+    
+    updateAiStatus();
+}
+
+async function fetchAndRenderHistory() {
+    if (!userSession) return;
+    try {
+        const res = await fetch('/api/history');
+        const data = await res.json();
+        if (data.history) {
+            lottoHistory = data.history.map(h => ({
+                id: h.id,
+                date: new Date(h.createdAt).toLocaleString(),
+                games: h.games,
+                analyzed: h.analyzed,
+                results: h.results || []
+            }));
+            renderHistory();
+        }
+    } catch(e) {
+        console.error("Failed to load history from DB", e);
+    }
+}
+
+initApp();
