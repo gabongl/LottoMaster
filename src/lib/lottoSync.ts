@@ -8,6 +8,24 @@ export interface SyncResult {
 }
 
 /**
+ * 현재 시간(또는 주어진 시간) 기준으로 판매 중인 로또 대상 회차(targetRound)를 계산합니다.
+ * 로또 1회차(2002-12-07 20:00) 기준, 매주 토요일 오후 8시(20:00 KST)에 
+ * 해당 주차 판매가 마감되고 다음 회차 판매가 즉시 시작됩니다.
+ */
+export function getTargetLottoRound(date: Date = new Date()): number {
+  const firstDrawTime = new Date('2002-12-07T20:00:00+09:00').getTime();
+  const nowTime = date.getTime();
+  
+  if (nowTime <= firstDrawTime) return 1;
+  
+  const diffMs = nowTime - firstDrawTime;
+  const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
+  const passedWeeks = Math.floor(diffMs / oneWeekMs);
+  
+  return 1 + passedWeeks + 1;
+}
+
+/**
  * 동행복권 최신 회차 데이터를 확인하고 DB에 동기화하는 함수
  */
 export async function syncLatestLotto(): Promise<SyncResult> {

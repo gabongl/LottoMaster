@@ -506,13 +506,11 @@ if(saveBtn) {
         saveBtn.textContent = "저장 중...";
         
         try {
-            const targetRound = window.latestLottoRound ? window.latestLottoRound + 1 : undefined;
             const res = await fetch('/api/history', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    games: window.currentGeneratedGames,
-                    targetRound: targetRound
+                    games: window.currentGeneratedGames
                 })
             });
             const data = await res.json();

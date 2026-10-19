@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { syncLatestLotto } from '@/lib/lottoSync';
+import { syncLatestLotto, getTargetLottoRound } from '@/lib/lottoSync';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]/route";
 
@@ -65,10 +65,9 @@ export async function POST() {
     for (const record of unanalyzedList) {
       let targetRound = record.targetRound;
 
-      // 만약 targetRound가 기록되지 않은 기존 데이터라면, 현재 DB의 최신 회차 또는 적절한 회차 유추
+      // 만약 targetRound가 기록되지 않은 기존 데이터라면, 생성일시 기준 토요일 20시 마감 회차 자동 계산
       if (!targetRound) {
-        const lastDraw = await prisma.lottoDraw.aggregate({ _max: { round: true } });
-        targetRound = lastDraw._max.round || 1246;
+        targetRound = getTargetLottoRound(new Date(record.createdAt));
       }
 
       // DB에서 해당 회차의 실제 당첨 번호 조회

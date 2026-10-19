@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getTargetLottoRound } from '@/lib/lottoSync';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]/route";
 
@@ -61,14 +62,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid games format" }, { status: 400 });
     }
 
-    // 대상 회차가 넘어오지 않은 경우, 현재 DB의 최신 회차 + 1을 디폴트로 설정
-    let roundToTarget = targetRound;
-    if (!roundToTarget) {
-      const lastDraw = await prisma.lottoDraw.aggregate({
-        _max: { round: true }
-      });
-      roundToTarget = (lastDraw._max.round || 0) + 1;
-    }
+    // 대상 회차가 지정되지 않은 경우, 토요일 오후 8시 판매마감 기준 공식 대상 회차 자동 부여
+    const roundToTarget = targetRound || getTargetLottoRound();
 
     const newHistory = await prisma.lottoHistory.create({
       data: {
