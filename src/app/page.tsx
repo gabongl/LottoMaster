@@ -11,7 +11,7 @@ export default function Home() {
 
         <main>
           <section className="glass-panel dashboard">
-            <h2>📊 핵심 통계 요약 (최근 기준)</h2>
+            <h2 id="stats-title">📊 핵심 통계 요약 (최신 데이터 집계 중...)</h2>
             <div className="stats-grid">
               <div className="stat-card">
                 <h3>가장 많이 나온 수 (Hot)</h3>
@@ -41,7 +41,7 @@ export default function Home() {
               <h3 style={{ color: '#E67E22', fontSize: '1.1rem', marginBottom: '10px' }}>🧠 백엔드 초정밀 분석 (1회~최신회차 DB 기반)</h3>
               <button id="deep-analyze-btn" className="primary-btn" style={{ background: 'linear-gradient(135deg, #E67E22, #D35400)', width: '100%', marginBottom: '10px' }}>🔍 DB 기반 정밀 분석 실행 (필수)</button>
               <div id="deep-analyze-progress" style={{ display: 'none', color: '#F39C12', fontSize: '0.95rem', fontStyle: 'italic', padding: '10px', background: 'rgba(0,0,0,0.3)', borderRadius: '5px' }}>
-                과거 1243회차 데이터 스캔 중...
+                최신 당첨 회차 자동 동기화 및 DB 정밀 스캔 중... ⏳
               </div>
               <div id="deep-analyze-result" style={{ display: 'none', color: '#2ECC71', fontSize: '0.95rem', fontWeight: 'bold', padding: '10px', background: 'rgba(0,0,0,0.3)', borderRadius: '5px' }}>
                 ✅ 정밀 분석 완료! (낙수 및 정규분포 가중치 적용됨)

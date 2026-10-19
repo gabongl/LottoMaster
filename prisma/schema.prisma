@@ -55,24 +55,28 @@ model VerificationToken {
 }
 
 model LottoHistory {
-  id        String   @id @default(cuid())
-  userId    String
-  games     Json     // [[1,2,3,4,5,6], [...]]
-  analyzed  Boolean  @default(false)
-  results   Json?    // ["1등", "낙첨", ...]
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  userId      String
+  targetRound Int?     // 대상 회차 (예: 1247)
+  games       Json     // [[1,2,3,4,5,6], [...]]
+  analyzed    Boolean  @default(false)
+  results     Json?    // ["1등", "낙첨", ...]
+  createdAt   DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model AiState {
-  id            String   @id @default(cuid())
-  userId        String   @unique
-  version       Float    @default(1.0)
-  sumMin        Int      @default(100)
-  sumMax        Int      @default(180)
-  learningCount Int      @default(0)
-  updatedAt     DateTime @updatedAt
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  version         Float    @default(1.0)
+  sumMin          Int      @default(100)
+  sumMax          Int      @default(180)
+  oddRatio        Float    @default(3.0)
+  highRatio       Float    @default(3.0)
+  consecutiveProb Float    @default(0.5)
+  learningCount   Int      @default(0)
+  updatedAt       DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

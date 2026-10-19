@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]/route";
 
-const prisma = new PrismaClient();
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
@@ -12,12 +12,35 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const userId = (session.user as any).id;
+
+    // 히스토리 조회
     const history = await prisma.lottoHistory.findMany({
-      where: { userId: (session.user as any).id },
+      where: { userId },
       orderBy: { createdAt: 'desc' }
     });
 
-    return NextResponse.json({ history });
+    // 유저의 AI 상태 조회 (없으면 기본 생성)
+    let aiState = await prisma.aiState.findUnique({
+      where: { userId }
+    });
+
+    if (!aiState) {
+      aiState = await prisma.aiState.create({
+        data: {
+          userId,
+          version: 1.0,
+          sumMin: 100,
+          sumMax: 180,
+          oddRatio: 3.0,
+          highRatio: 3.0,
+          consecutiveProb: 0.5,
+          learningCount: 0
+        }
+      });
+    }
+
+    return NextResponse.json({ history, aiState });
   } catch (error) {
     console.error("History GET Error:", error);
     return NextResponse.json({ error: "Failed to fetch history" }, { status: 500 });
@@ -31,14 +54,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { games } = await req.json();
+    const body = await req.json();
+    const { games, targetRound } = body;
+
     if (!games || !Array.isArray(games)) {
       return NextResponse.json({ error: "Invalid games format" }, { status: 400 });
+    }
+
+    // 대상 회차가 넘어오지 않은 경우, 현재 DB의 최신 회차 + 1을 디폴트로 설정
+    let roundToTarget = targetRound;
+    if (!roundToTarget) {
+      const lastDraw = await prisma.lottoDraw.aggregate({
+        _max: { round: true }
+      });
+      roundToTarget = (lastDraw._max.round || 0) + 1;
     }
 
     const newHistory = await prisma.lottoHistory.create({
       data: {
         userId: (session.user as any).id,
+        targetRound: roundToTarget,
         games: games,
         analyzed: false
       }

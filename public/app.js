@@ -54,8 +54,15 @@ async function renderStats() {
         const data = await res.json();
         if (data.hot) hotNumbers = data.hot;
         if (data.cold) coldNumbers = data.cold;
+        if (data.latestRound) {
+            window.latestLottoRound = data.latestRound;
+            const titleEl = document.getElementById('stats-title');
+            if (titleEl) {
+                titleEl.textContent = `📊 핵심 통계 요약 (최신 ${data.latestRound}회차 기준)`;
+            }
+        }
         if (data.totalDraws) {
-            console.log(`Loaded stats from ${data.totalDraws} past draws.`);
+            console.log(`Loaded stats from ${data.totalDraws} past draws (Latest: ${data.latestRound || data.totalDraws}회).`);
         }
     } catch (e) {
         console.error("Failed to fetch stats, using fallback", e);
@@ -206,13 +213,16 @@ document.getElementById('deep-analyze-btn').addEventListener('click', async () =
             window.deepAnalysisWeights = data.weights;
             progress.style.display = 'none';
             result.style.display = 'block';
-            result.textContent = `✅ 정밀 분석 완료! (1회~${data.totalDrawsAnalyzed}회 누적 데이터 기반 낙수 및 정규분포 가중치 적용됨)`;
+            result.textContent = `✅ 정밀 분석 완료! (1회~최신 ${data.latestRound || data.totalDrawsAnalyzed}회차 누적 데이터 기반 낙수 및 정규분포 가중치 적용됨)`;
+            
+            // 분석 과정에서 신규 회차가 동기화되었을 수 있으므로 통계 UI도 최신화
+            renderStats();
             
             generateBtn.disabled = false;
             generateBtn.style.opacity = 1;
             generateBtn.textContent = '최적 조합 5게임 생성';
             
-            showToast('백엔드 정밀 분석 모델이 로드되었습니다!');
+            showToast(`최신 ${data.latestRound || data.totalDrawsAnalyzed}회차 기반 정밀 분석 모델이 로드되었습니다!`);
         }
     } catch(e) {
         progress.style.display = 'none';
@@ -432,7 +442,12 @@ function renderHistory() {
         
         const header = document.createElement('div');
         header.className = 'history-header';
-        header.innerHTML = `<span>생성 일시: ${record.date}</span><span>상태: ${record.analyzed ? '분석 완료' : '대기 중'}</span>`;
+        const roundText = record.targetRound ? `<span style="background: #3498DB; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; margin-right: 8px;">${record.targetRound}회차 대비</span>` : '';
+        const statusText = record.analyzed 
+            ? `<span style="color: #2ECC71; font-weight: bold;">✅ 당첨 확인 완료</span>` 
+            : `<span style="color: #F39C12;">⏳ 추첨 대기 중 (토 20:45)</span>`;
+            
+        header.innerHTML = `<div>${roundText}<span style="font-size: 0.85rem; color: #BBB;">${record.date}</span></div><div>${statusText}</div>`;
         card.appendChild(header);
         
         const gamesDiv = document.createElement('div');
@@ -451,10 +466,18 @@ function renderHistory() {
             
             rowDiv.appendChild(ballsDiv);
             
-            if (record.analyzed) {
+            if (record.analyzed && record.results && record.results[idx]) {
                 const resultDiv = document.createElement('div');
-                resultDiv.className = `history-result ${record.results[idx] !== '낙첨' ? 'hit' : ''}`;
-                resultDiv.textContent = record.results[idx];
+                const resText = record.results[idx];
+                const isWin = resText.includes('등 당첨');
+                resultDiv.className = `history-result ${isWin ? 'hit' : ''}`;
+                resultDiv.textContent = resText;
+                rowDiv.appendChild(resultDiv);
+            } else if (!record.analyzed) {
+                const resultDiv = document.createElement('div');
+                resultDiv.style.fontSize = '0.8rem';
+                resultDiv.style.color = '#888';
+                resultDiv.textContent = '추첨 대기';
                 rowDiv.appendChild(resultDiv);
             }
             
@@ -483,15 +506,20 @@ if(saveBtn) {
         saveBtn.textContent = "저장 중...";
         
         try {
+            const targetRound = window.latestLottoRound ? window.latestLottoRound + 1 : undefined;
             const res = await fetch('/api/history', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ games: window.currentGeneratedGames })
+                body: JSON.stringify({ 
+                    games: window.currentGeneratedGames,
+                    targetRound: targetRound
+                })
             });
             const data = await res.json();
             
             if (data.success) {
-                showToast('❤️ 내 번호 보관함에 성공적으로 저장되었습니다!');
+                const roundNotice = data.history.targetRound ? `${data.history.targetRound}회차 대비 ` : '';
+                showToast(`❤️ ${roundNotice}번호가 보관함에 성공적으로 저장되었습니다!`);
                 await fetchAndRenderHistory();
                 document.getElementById('analytics-section').scrollIntoView({ behavior: 'smooth' });
             } else {
@@ -508,70 +536,47 @@ if(saveBtn) {
 
 const analyzeBtn = document.getElementById('analyze-btn');
 if(analyzeBtn) {
-    analyzeBtn.addEventListener('click', () => {
-        let learningOccurred = false;
-        const now = new Date();
-        
-        lottoHistory.forEach(record => {
-            if (!record.analyzed) {
-                // 저장된 날짜를 Date 객체로 변환
-                const recordDate = new Date(record.date);
-                
-                // 실제로는 추첨일(토요일 오후 8시 45분)을 계산하여 현재 시간과 비교해야 함.
-                // 여기서는 시뮬레이션을 위해 "저장 후 5초가 지나면 무조건 추첨일이 지났다"고 가정하고
-                // 임의의 가상 당첨 번호를 동행복권 서버에서 가져왔다고 모의(Mock) 처리함.
-                const isDrawDatePassed = (now - recordDate) > 5000; 
+    analyzeBtn.addEventListener('click', async () => {
+        if (!userSession) {
+            showToast('보관함 적중률 분석은 구글 로그인이 필요합니다.');
+            return;
+        }
 
-                if (isDrawDatePassed) {
-                    record.analyzed = true;
-                    learningOccurred = true;
-                    // 가상 당첨 번호 (실제 서비스에서는 API 연동)
-                    const mockWinningNums = [3, 15, 22, 28, 33, 41]; 
-                    
-                    record.results = record.games.map(game => {
-                        const hitCount = game.filter(n => mockWinningNums.includes(n)).length;
-                        if (hitCount === 6) return '1등 당첨!!';
-                        if (hitCount === 5) return '3등 당첨!';
-                        if (hitCount === 4) return '4등 당첨';
-                        if (hitCount === 3) return '5등 당첨';
-                        return '낙첨';
-                    });
+        analyzeBtn.disabled = true;
+        analyzeBtn.textContent = '⏳ DB 실제 당첨번호 정밀 대조 및 AI 학습 중...';
+        
+        try {
+            const res = await fetch('/api/history/check', { method: 'POST' });
+            const data = await res.json();
+            
+            if (data.success) {
+                if (data.history) {
+                    lottoHistory = data.history.map(h => ({
+                        id: h.id,
+                        targetRound: h.targetRound,
+                        date: new Date(h.createdAt).toLocaleString(),
+                        games: h.games,
+                        analyzed: h.analyzed,
+                        results: h.results || []
+                    }));
+                    renderHistory();
                 }
+                
+                if (data.aiState) {
+                    aiStats = data.aiState;
+                    updateAiStatus();
+                }
+                
+                showToast(data.message || '당첨 확인 및 AI 자가학습이 완료되었습니다!');
+            } else {
+                showToast(data.error || '적중률 분석 중 오류가 발생했습니다.');
             }
-        });
-        
-        if (learningOccurred) {
-            const winSum = [3, 15, 22, 28, 33, 41].reduce((a,b)=>a+b, 0);
-            const targetMin = Math.max(21, winSum - 30);
-            const targetMax = Math.min(255, winSum + 30);
-            
-            // 실제 당첨 번호의 특성 분석
-            const mockWinningNums = [3, 15, 22, 28, 33, 41];
-            const realOddCount = mockWinningNums.filter(n => n % 2 !== 0).length;
-            const realHighCount = mockWinningNums.filter(n => n >= 23).length;
-            let realHasConsecutive = 0;
-            for (let i = 0; i < 5; i++) {
-                if (mockWinningNums[i + 1] - mockWinningNums[i] === 1) realHasConsecutive = 1;
-            }
-
-            // 가중치 이동 (Learning Rate = 0.3)
-            aiStats.sumMin = Math.round(aiStats.sumMin * 0.7 + targetMin * 0.3);
-            aiStats.sumMax = Math.round(aiStats.sumMax * 0.7 + targetMax * 0.3);
-            aiStats.oddRatio = parseFloat((aiStats.oddRatio * 0.7 + realOddCount * 0.3).toFixed(2));
-            aiStats.highRatio = parseFloat((aiStats.highRatio * 0.7 + realHighCount * 0.3).toFixed(2));
-            aiStats.consecutiveProb = parseFloat((aiStats.consecutiveProb * 0.7 + realHasConsecutive * 0.3).toFixed(2));
-            
-            aiStats.learningCount += 1;
-            aiStats.version = parseFloat((aiStats.version + 0.1).toFixed(1));
-            
-            localStorage.setItem('lottoAiStats', JSON.stringify(aiStats));
-            localStorage.setItem('lottoHistory', JSON.stringify(lottoHistory));
-            
-            showToast('✅ 지난 회차 자동 당첨 확인 및 AI 자가 학습 완료!');
-            renderHistory();
-            updateAiStatus();
-        } else {
-            showToast('⏳ 아직 추첨일이 도래하지 않은 번호들입니다.');
+        } catch(e) {
+            console.error('Check winning error:', e);
+            showToast('서버 통신 중 오류가 발생했습니다.');
+        } finally {
+            analyzeBtn.disabled = false;
+            analyzeBtn.textContent = '🔄 지난 회차 자동 확인 및 적중률 분석 (AI 자가 학습)';
         }
     });
 }
@@ -625,12 +630,17 @@ async function fetchAndRenderHistory() {
         if (data.history) {
             lottoHistory = data.history.map(h => ({
                 id: h.id,
+                targetRound: h.targetRound,
                 date: new Date(h.createdAt).toLocaleString(),
                 games: h.games,
                 analyzed: h.analyzed,
                 results: h.results || []
             }));
             renderHistory();
+        }
+        if (data.aiState) {
+            aiStats = data.aiState;
+            updateAiStatus();
         }
     } catch(e) {
         console.error("Failed to load history from DB", e);

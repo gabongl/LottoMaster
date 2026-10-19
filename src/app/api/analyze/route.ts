@@ -1,10 +1,16 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { syncLatestLotto } from '@/lib/lottoSync';
 
-const prisma = new PrismaClient();
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
+    // 1. 분석 실행 직전 최신 회차 동기화 보장
+    await syncLatestLotto().catch(err => {
+      console.warn('[Analyze API] Auto sync error ignored:', err);
+    });
+
     const draws = await prisma.lottoDraw.findMany({
       orderBy: { round: 'desc' }
     });
@@ -13,8 +19,8 @@ export async function GET() {
       return NextResponse.json({ error: "No data available in DB" }, { status: 404 });
     }
     
-    // Simulate complex DB heavy processing (1.5 seconds)
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // 복잡한 DB 정밀 연산 시뮬레이션 지연 (1초)
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
     const counts: Record<number, number> = {};
     const lastSeen: Record<number, number> = {};
@@ -27,9 +33,10 @@ export async function GET() {
     }
     
     const totalDraws = draws.length;
+    const latestRound = draws[0]?.round || 0;
     
     // Calculate frequency and last seen (낙수)
-    draws.forEach((draw: any, index: number) => {
+    draws.forEach((draw, index: number) => {
       const nums = [draw.num1, draw.num2, draw.num3, draw.num4, draw.num5, draw.num6];
       nums.forEach(num => {
         counts[num]++;
@@ -68,10 +75,11 @@ export async function GET() {
     return NextResponse.json({ 
       success: true,
       totalDrawsAnalyzed: totalDraws,
+      latestRound: latestRound,
       weights: weights,
       overdueStats: lastSeen,
       frequencyStats: counts,
-      message: "Deep Analysis Completed Successfully."
+      message: `과거 1회부터 최신 ${latestRound}회차까지 정밀 분석이 완료되었습니다.`
     });
     
   } catch (error) {
