@@ -1,3 +1,76 @@
+
+function getRoundTimingInfo() {
+    const now = new Date();
+    const day = now.getDay(); // 0(일) ~ 6(토)
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    
+    // 로또 1회차(2002-12-07 20:00 KST) 기준 회차 계산
+    const firstDrawTime = new Date('2002-12-07T20:00:00+09:00').getTime();
+    const diffMs = now.getTime() - firstDrawTime;
+    const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
+    const targetRound = 1 + Math.floor(diffMs / oneWeekMs) + 1;
+
+    // 1. 토요일 마감 직전 (18:00 ~ 19:59) - 간당간당한 마감 임박 시간!
+    if (day === 6 && hours >= 18 && hours < 20) {
+        const leftMinutes = (20 * 60) - (hours * 60 + minutes);
+        return {
+            type: 'urgent',
+            icon: '🚨',
+            title: `[금주 ${targetRound}회차 마감 임박!] 오늘 오후 8시 판매 마감`,
+            pill: `마감까지 약 ${leftMinutes}분 남음`,
+            desc: `현재 생성된 번호는 <strong>오늘(${now.getMonth()+1}/${now.getDate()}) 추첨용</strong> 번호입니다! 오늘 <strong>오후 8시(20:00) 마감 전까지 복권 판매점에서 구매</strong>하셔야 이번 주 추첨에 참여하실 수 있습니다.`
+        };
+    }
+    
+    // 2. 토요일 추첨 진행 및 차주 전환 (20:00 ~ 21:15) - 마감 직후 간당간당한 시간!
+    if (day === 6 && hours >= 20 && (hours < 21 || (hours === 21 && minutes <= 15))) {
+        return {
+            type: 'transition',
+            icon: '📢',
+            title: `[차주 ${targetRound}회차 대비] 오늘 추첨 판매 마감 완료`,
+            pill: `다음 주 토요일 추첨용`,
+            desc: `오늘(${targetRound - 1}회) 로또 판매는 20:00에 마감되었습니다. <strong>지금 생성된 번호는 다음 주 토요일 추첨되는 [${targetRound}회차] 공식 번호</strong>로 유효합니다.`
+        };
+    }
+
+    // 3. 평상시 (일~금 및 토요일 낮)
+    const daysUntilSaturday = (6 - day + 7) % 7 || 7;
+    const nextSat = new Date(now.getTime() + daysUntilSaturday * 24 * 60 * 60 * 1000);
+    const satMonth = nextSat.getMonth() + 1;
+    const satDate = nextSat.getDate();
+
+    return {
+        type: 'normal',
+        icon: '🎟️',
+        title: `[${targetRound}회차 대비 추천 번호]`,
+        pill: `${satMonth}월 ${satDate}일(토) 20:00 마감`,
+        desc: `현재 생성된 번호는 이번 주 <strong>${satMonth}월 ${satDate}일(토) 오후 8시</strong> 판매 마감되는 <strong>[${targetRound}회차]</strong> 공식 추천 번호입니다.`
+    };
+}
+
+function renderTimingBanner() {
+    const container = document.getElementById('timing-banner-container');
+    if (!container) return;
+
+    const info = getRoundTimingInfo();
+    const pillClass = info.type === 'urgent' ? 'countdown-pill' : (info.type === 'transition' ? 'transition-pill' : 'countdown-pill');
+    const pillStyle = info.type === 'normal' ? 'background: rgba(52, 152, 219, 0.4); color: #FFF;' : '';
+
+    container.innerHTML = `
+        <div class="timing-banner ${info.type}">
+            <div class="timing-banner-icon">${info.icon}</div>
+            <div class="timing-banner-content">
+                <div class="timing-banner-title">
+                    <span>${info.title}</span>
+                    <span class="${pillClass}" style="${pillStyle}">${info.pill}</span>
+                </div>
+                <div class="timing-banner-desc">${info.desc}</div>
+            </div>
+        </div>
+    `;
+}
+
 // 통계 데이터 모의 (실제 서비스 시 동행복권 API 연동 필요)
 let hotNumbers = [];
 let coldNumbers = [];
@@ -304,6 +377,7 @@ document.getElementById('generate-btn').addEventListener('click', () => {
             container.appendChild(gameRow);
         }
         
+        renderTimingBanner();
         resultsSection.style.display = 'block';
         document.getElementById('omr-sheet-section').style.display = 'none';
     }, 3000);

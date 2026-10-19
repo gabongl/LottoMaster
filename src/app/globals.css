@@ -407,3 +407,121 @@ header p {
 /* Toast Notification */  
 .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(46, 204, 113, 0.9); color: white; padding: 12px 24px; border-radius: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); font-weight: bold; z-index: 1000; opacity: 0; transition: opacity 0.3s, bottom 0.3s; }  
 .toast.show { opacity: 1; bottom: 50px; } 
+
+/* Timing Notice Banner (세련된 회차 안내 배너) */
+.timing-banner {
+    border-radius: 14px;
+    padding: 16px 20px;
+    margin: 15px 0 20px 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: all 0.3s ease;
+    animation: fadeInSlide 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.timing-banner-icon {
+    font-size: 1.8rem;
+    line-height: 1;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.timing-banner-content {
+    flex: 1;
+}
+
+.timing-banner-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.timing-banner-desc {
+    font-size: 0.9rem;
+    color: #E0E0EE;
+    line-height: 1.5;
+}
+
+.timing-banner-desc strong {
+    color: #FFFFFF;
+    font-weight: 700;
+}
+
+/* 1. 마감 임박 (토요일 18시~20시) - 골드/앰버 글로우 & 펄스 */
+.timing-banner.urgent {
+    background: linear-gradient(135deg, rgba(230, 126, 34, 0.25), rgba(211, 84, 0, 0.15));
+    border: 1px solid rgba(243, 156, 18, 0.7);
+    box-shadow: 0 8px 25px rgba(230, 126, 34, 0.25);
+    animation: urgentPulse 2s infinite ease-in-out, fadeInSlide 0.5s ease;
+}
+.timing-banner.urgent .timing-banner-title {
+    color: #F39C12;
+    text-shadow: 0 0 10px rgba(243, 156, 18, 0.4);
+}
+.timing-banner.urgent .countdown-pill {
+    background: #E74C3C;
+    color: white;
+    font-size: 0.75rem;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 8px rgba(231, 76, 60, 0.4);
+}
+
+/* 2. 추첨 진행 및 차주 전환 (토요일 20시~21시) - 바이올렛/인디고 네온 */
+.timing-banner.transition {
+    background: linear-gradient(135deg, rgba(142, 68, 173, 0.25), rgba(52, 73, 94, 0.2));
+    border: 1px solid rgba(155, 89, 182, 0.6);
+    box-shadow: 0 8px 25px rgba(142, 68, 173, 0.2);
+}
+.timing-banner.transition .timing-banner-title {
+    color: #BB8FCE;
+}
+.timing-banner.transition .transition-pill {
+    background: #8E44AD;
+    color: white;
+    font-size: 0.75rem;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-weight: bold;
+}
+
+/* 3. 평시 정상 (평일 및 일요일) - 모던 사이언/에메랄드 글래스 */
+.timing-banner.normal {
+    background: linear-gradient(135deg, rgba(52, 152, 219, 0.15), rgba(46, 204, 113, 0.08));
+    border: 1px solid rgba(52, 152, 219, 0.35);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+.timing-banner.normal .timing-banner-title {
+    color: #5DADE2;
+}
+
+@keyframes urgentPulse {
+    0%, 100% {
+        border-color: rgba(243, 156, 18, 0.6);
+        box-shadow: 0 8px 25px rgba(230, 126, 34, 0.2);
+    }
+    50% {
+        border-color: rgba(231, 76, 60, 0.9);
+        box-shadow: 0 10px 35px rgba(231, 76, 60, 0.35);
+    }
+}
+
+@keyframes fadeInSlide {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

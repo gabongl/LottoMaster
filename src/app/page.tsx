@@ -61,6 +61,7 @@ export default function Home() {
 
           <section className="glass-panel results" style={{ display: 'none' }} id="results-section">
             <h2>🎯 생성된 예측 번호</h2>
+            <div id="timing-banner-container"></div>
             <div id="games-container"></div>
             
             <div style={{ textAlign: 'center', margin: '2rem 0', display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>

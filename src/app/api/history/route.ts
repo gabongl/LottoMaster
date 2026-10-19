@@ -37,7 +37,7 @@ export async function GET() {
           highRatio: 3.0,
           consecutiveProb: 0.5,
           learningCount: 0
-        }
+        } as any
       });
     }
 
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
         targetRound: roundToTarget,
         games: games,
         analyzed: false
-      }
+      } as any
     });
 
     return NextResponse.json({ success: true, history: newHistory });

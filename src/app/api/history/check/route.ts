@@ -57,13 +57,13 @@ export async function POST() {
           highRatio: 3.0,
           consecutiveProb: 0.5,
           learningCount: 0
-        }
+        } as any
       });
     }
 
     // 4. 각 미분석 레코드 분석 루프
     for (const record of unanalyzedList) {
-      let targetRound = record.targetRound;
+      let targetRound = (record as any).targetRound;
 
       // 만약 targetRound가 기록되지 않은 기존 데이터라면, 생성일시 기준 토요일 20시 마감 회차 자동 계산
       if (!targetRound) {
@@ -108,7 +108,7 @@ export async function POST() {
           targetRound,
           analyzed: true,
           results
-        }
+        } as any
       });
 
       // 5. 실제 당첨 번호 특성을 바탕으로 AI 자가 학습(Self-Learning) 수행
@@ -128,30 +128,32 @@ export async function POST() {
       }
 
       // 가중치 보정 (Learning Rate: 0.3)
-      aiState.sumMin = Math.round(aiState.sumMin * 0.7 + targetMin * 0.3);
-      aiState.sumMax = Math.round(aiState.sumMax * 0.7 + targetMax * 0.3);
-      aiState.oddRatio = parseFloat((aiState.oddRatio * 0.7 + realOddCount * 0.3).toFixed(2));
-      aiState.highRatio = parseFloat((aiState.highRatio * 0.7 + realHighCount * 0.3).toFixed(2));
-      aiState.consecutiveProb = parseFloat((aiState.consecutiveProb * 0.7 + (hasConsecutive ? 1 : 0) * 0.3).toFixed(2));
-      aiState.learningCount += 1;
-      aiState.version = parseFloat((aiState.version + 0.1).toFixed(1));
+      const currentAi = aiState as any;
+      currentAi.sumMin = Math.round(currentAi.sumMin * 0.7 + targetMin * 0.3);
+      currentAi.sumMax = Math.round(currentAi.sumMax * 0.7 + targetMax * 0.3);
+      currentAi.oddRatio = parseFloat(((currentAi.oddRatio ?? 3.0) * 0.7 + realOddCount * 0.3).toFixed(2));
+      currentAi.highRatio = parseFloat(((currentAi.highRatio ?? 3.0) * 0.7 + realHighCount * 0.3).toFixed(2));
+      currentAi.consecutiveProb = parseFloat(((currentAi.consecutiveProb ?? 0.5) * 0.7 + (hasConsecutive ? 1 : 0) * 0.3).toFixed(2));
+      currentAi.learningCount = (currentAi.learningCount || 0) + 1;
+      currentAi.version = parseFloat(((currentAi.version || 1.0) + 0.1).toFixed(1));
 
       analyzedCount++;
     }
 
     // AI 상태가 갱신되었다면 DB에 저장
     if (analyzedCount > 0) {
+      const cur = aiState as any;
       latestAiState = await prisma.aiState.update({
         where: { userId },
         data: {
-          version: aiState.version,
-          sumMin: aiState.sumMin,
-          sumMax: aiState.sumMax,
-          oddRatio: aiState.oddRatio,
-          highRatio: aiState.highRatio,
-          consecutiveProb: aiState.consecutiveProb,
-          learningCount: aiState.learningCount
-        }
+          version: cur.version,
+          sumMin: cur.sumMin,
+          sumMax: cur.sumMax,
+          oddRatio: cur.oddRatio,
+          highRatio: cur.highRatio,
+          consecutiveProb: cur.consecutiveProb,
+          learningCount: cur.learningCount
+        } as any
       });
     } else {
       latestAiState = aiState;
